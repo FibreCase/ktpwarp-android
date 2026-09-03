@@ -1,6 +1,5 @@
 package io.github.celeswuff.ktpwarp.ui
 
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -19,7 +18,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -40,8 +42,6 @@ import io.github.celeswuff.ktpwarp.network.entity.签到FailureMessage
 import io.github.celeswuff.ktpwarp.network.entity.签到HistoryData
 import io.github.celeswuff.ktpwarp.network.entity.签到SuccessMessage
 import io.github.celeswuff.ktpwarp.network.service.KtpwarpService.ConnectionStatus
-import io.github.g00fy2.quickie.QRResult
-import io.github.g00fy2.quickie.ScanQRCode
 import kotlinx.coroutines.launch
 
 @Composable
@@ -61,20 +61,27 @@ fun App签到Card(
 
     val isConnected = connectionStatus == ConnectionStatus.CONNECTED
 
-    val scanQrCodeLauncher = rememberLauncherForActivityResult(ScanQRCode()) { result ->
-        scope.launch {
-            when (result) {
-                is QRResult.QRSuccess -> if (result.content.rawValue.startsWith("https://w.ketangpai.com/checkIn/checkinCodeResult")) {
-                    onSubmitQrcode(result.content.rawValue)
-                } else {
-                    snackbarHostState.showSnackbar("不是课堂派二维码。")
-                }
+    var showScanner by remember { mutableStateOf(false) }
 
-                QRResult.QRUserCanceled -> {}
-                QRResult.QRMissingPermission -> snackbarHostState.showSnackbar("没有摄像头权限，不能打开扫码器。")
-                is QRResult.QRError -> snackbarHostState.showSnackbar("${result.exception.javaClass.simpleName}: ${result.exception.localizedMessage}\n\n是什么呢")
+    if (showScanner) {
+        QrScannerDialog(
+            onDismissRequest = { showScanner = false },
+            onQrCodeScanned = { rawValue ->
+                scope.launch {
+                    if (rawValue.startsWith("https://w.ketangpai.com/checkIn/checkinCodeResult")) {
+                        onSubmitQrcode(rawValue)
+                        showScanner = false
+                    } else {
+                        snackbarHostState.showSnackbar("不是课堂派二维码。")
+                    }
+                }
+            },
+            onError = { exception ->
+                scope.launch {
+                    snackbarHostState.showSnackbar("${exception.javaClass.simpleName}: ${exception.localizedMessage}")
+                }
             }
-        }
+        )
     }
 
     AnimatedVisibility(
@@ -223,7 +230,7 @@ fun App签到Card(
                 }
 
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Button(onClick = { scanQrCodeLauncher.launch(null) }) {
+                    Button(onClick = { showScanner = true }) {
                         Text(text = "扫描二维码")
                     }
                     Button(
