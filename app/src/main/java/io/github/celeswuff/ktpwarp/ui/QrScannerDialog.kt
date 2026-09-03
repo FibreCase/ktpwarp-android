@@ -16,6 +16,7 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,6 +37,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -55,6 +57,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 
+@OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 @Composable
 fun QrScannerDialog(
     onDismissRequest: () -> Unit,
@@ -128,7 +131,7 @@ fun QrScannerDialog(
         val cameraProvider = context.getCameraProvider()
 
         val preview = Preview.Builder().build().also {
-            it.surfaceProvider = targetView.surfaceProvider
+            it.setSurfaceProvider(targetView.surfaceProvider)
         }
 
         val analysis = ImageAnalysis.Builder()
@@ -169,7 +172,8 @@ fun QrScannerDialog(
 
         runCatching {
             cameraProvider.unbindAll()
-            val boundCamera = cameraProvider.bindToLifecycle(activity ?: return@runCatching, selector, preview, analysis)
+            val lifecycleOwner = activity as? androidx.lifecycle.LifecycleOwner ?: return@runCatching
+            val boundCamera = cameraProvider.bindToLifecycle(lifecycleOwner, selector, preview, analysis)
             val zoomState = boundCamera.cameraInfo.zoomState.value
             minZoom = zoomState?.minZoomRatio ?: 1f
             maxZoom = zoomState?.maxZoomRatio ?: 1f
